@@ -173,8 +173,43 @@
     return res.json();
   }
 
-  // Returns {pos, definition, synonyms, antonyms, examples}, or null if nothing was found.
+  // Simple base forms to try when the exact form isn't in the dictionary:
+  // abolished → abolish, trapped → trap, meticulously → meticulous, studies → study…
+  function baseForms(term) {
+    const t = term.trim().toLowerCase();
+    if (/\s/.test(t) || t.length < 5) return [];
+    const out = [];
+    const undouble = (s) => (/([bdgklmnprt])\1$/.test(s) ? s.slice(0, -1) : null);
+    if (t.endsWith('ied') || t.endsWith('ies')) out.push(t.slice(0, -3) + 'y');
+    if (t.endsWith('ed')) out.push(t.slice(0, -2), t.slice(0, -1), undouble(t.slice(0, -2)));
+    if (t.endsWith('ing')) out.push(t.slice(0, -3), t.slice(0, -3) + 'e', undouble(t.slice(0, -3)));
+    if (t.endsWith('ally')) out.push(t.slice(0, -4), t.slice(0, -2));
+    else if (t.endsWith('ily')) out.push(t.slice(0, -3) + 'y');
+    else if (t.endsWith('ly')) out.push(t.slice(0, -2));
+    if (t.endsWith('es')) out.push(t.slice(0, -2));
+    if (t.endsWith('s') && !t.endsWith('ss')) out.push(t.slice(0, -1));
+    return uniq(out.filter((x) => x && x.length > 2)).slice(0, 4);
+  }
+
+  // Returns {pos, definition, synonyms, antonyms, examples}, null if nothing was found,
+  // or {error: true} if the dictionary sites could not be reached.
   async function lookup(term) {
+    const first = await lookupExact(term);
+    if (first?.error || first?.definition) return first;
+    for (const base of baseForms(term)) {
+      const info = await lookupExact(base);
+      if (info?.definition) {
+        if (first) {
+          info.synonyms = uniq([...first.synonyms, ...info.synonyms]).slice(0, 8);
+          info.antonyms = uniq([...first.antonyms, ...info.antonyms]).slice(0, 6);
+        }
+        return info;
+      }
+    }
+    return first;
+  }
+
+  async function lookupExact(term) {
     const q = encodeURIComponent(term.trim().toLowerCase());
     const out = { pos: '', definition: '', synonyms: [], antonyms: [], examples: [] };
 
@@ -183,6 +218,9 @@
       fetchJson(`https://api.datamuse.com/words?rel_syn=${q}&max=8`),
       fetchJson(`https://api.datamuse.com/words?rel_ant=${q}&max=6`),
     ]);
+    // A 404 from the dictionary just means "unknown word"; anything else is a connection problem.
+    const unreachable = (r) => r.status === 'rejected' && !/HTTP 404/.test(r.reason?.message);
+    if (unreachable(dict) && unreachable(syn)) return { error: true };
 
     if (dict.status === 'fulfilled' && Array.isArray(dict.value)) {
       for (const entry of dict.value) {
@@ -213,11 +251,17 @@
     return found ? out : null;
   }
 
+  // Returns 'found', 'none' or 'error'.
   async function autofill(word) {
     const info = await lookup(word.term);
-    if (info) mergeInto(word, info);
-    return !!info;
+    if (info?.error) return 'error';
+    word.lookedUp = Date.now();
+    if (!info) return 'none';
+    mergeInto(word, info);
+    return 'found';
   }
+
+  const OFFLINE_MSG = 'Could not reach the online dictionary — check your connection or try again in a few minutes';
 
   // Runs async jobs with limited concurrency so we stay polite to the free APIs.
   async function runPool(items, worker, concurrency = 3, onProgress) {
@@ -308,8 +352,9 @@
         break;
       case 'fill':
         await withBusy(btn, '…', async () => {
-          const ok = await autofill(w);
-          toast(ok ? `Updated “${w.term}”` : `Nothing found online for “${w.term}”`);
+          const result = await autofill(w);
+          toast(result === 'found' ? `Updated “${w.term}”`
+            : result === 'error' ? OFFLINE_MSG : `Nothing more found online for “${w.term}”`);
         });
         save();
         renderList(deck);
@@ -476,14 +521,36 @@
     toast(`Imported: ${added} new, ${moved} moved from Extra, ${merged} merged`);
   });
 
+  // Fills words in the background, saving as it goes so nothing is lost if the
+  // page is closed. Tap the button again to stop. Words already looked up in
+  // the last 30 days are skipped, since the dictionary won't know more about them.
+  let autofillRun = null;
   $('#mine-autofill-all').addEventListener('click', async (e) => {
-    const todo = wordsIn('mine').filter((w) => missingFields(w).length);
-    if (!todo.length) return toast('All your words are complete');
-    const results = await withBusy(e.target, 'Looking up', (progress) =>
-      runPool(todo, autofill, 3, (d, n) => progress(`${d}/${n}`)));
+    const btn = e.currentTarget;
+    if (autofillRun) { autofillRun.stopped = true; return; }
+    const recent = Date.now() - 30 * DAY;
+    const todo = wordsIn('mine').filter((w) => missingFields(w).length && !(w.lookedUp > recent));
+    if (!todo.length) return toast('Nothing left to look up — all words were checked recently');
+
+    const run = autofillRun = { stopped: false };
+    const label = btn.textContent;
+    let done = 0, found = 0, errorsInRow = 0;
+    btn.textContent = `Stop (0/${todo.length})`;
+    await runPool(todo, async (w) => {
+      if (run.stopped) return;
+      const result = await autofill(w);
+      if (result === 'found') found++;
+      errorsInRow = result === 'error' ? errorsInRow + 1 : 0;
+      if (errorsInRow >= 6) run.stopped = run.offline = true;
+      done++;
+      btn.textContent = `Stop (${done}/${todo.length})`;
+      if (done % 10 === 0) { save(); renderList('mine'); }
+    }, 3);
+    autofillRun = null;
+    btn.textContent = label;
     save();
     renderList('mine');
-    toast(`Updated ${results.filter(Boolean).length} of ${todo.length} words`);
+    toast(run.offline ? OFFLINE_MSG : `Looked up ${done} words, found new details for ${found}`);
   });
 
   // ---------- Extra words ----------
