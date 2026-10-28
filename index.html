@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3b5bdb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="TOEFL Vocab">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <title>TOEFL Vocab Trainer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>TOEFL Vocab</h1>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="study">Flashcards</button>
+      <button class="tab" data-view="quiz">Quiz</button>
+      <button class="tab" data-view="mine">My Words</button>
+      <button class="tab" data-view="extra">Extra Words</button>
+      <button class="tab" data-view="data">Data</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Flashcards -->
+    <section id="view-study" class="view active">
+      <div class="toolbar">
+        <label>Deck
+          <select id="study-deck">
+            <option value="mine">My words</option>
+            <option value="extra">Extra words</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label>Cards
+          <select id="study-filter">
+            <option value="due">Due for review</option>
+            <option value="all">All (shuffled)</option>
+            <option value="weak">Weakest first</option>
+          </select>
+        </label>
+        <button id="study-start" class="primary">Start session</button>
+        <span id="study-stats" class="muted"></span>
+      </div>
+
+      <div id="study-empty" class="empty">Add some words in <b>My Words</b>, then start a session.</div>
+
+      <div id="study-area" hidden>
+        <div class="progress"><div id="study-progress-bar"></div></div>
+        <div class="session-bar">
+          <span id="study-counter" class="muted"></span>
+          <button id="study-end" class="link">End session</button>
+        </div>
+        <div id="card" class="card" tabindex="0" aria-live="polite">
+          <div class="card-inner">
+            <div class="card-face card-front">
+              <span id="card-badge" class="badge"></span>
+              <div id="card-term" class="term"></div>
+              <div id="card-pos" class="muted"></div>
+              <p class="hint muted">Tap to flip</p>
+            </div>
+            <div class="card-face card-back">
+              <div class="back-head">
+                <span id="card-term-back" class="term small"></span>
+                <button id="card-speak" class="icon" title="Pronounce" aria-label="Pronounce">🔊</button>
+              </div>
+              <p id="card-def"></p>
+              <p id="card-ar" class="arabic" dir="rtl"></p>
+              <div class="chips-row"><span class="label">Synonyms</span><div id="card-syn" class="chips"></div></div>
+              <div class="chips-row"><span class="label">Antonyms</span><div id="card-ant" class="chips"></div></div>
+              <div id="card-ex" class="examples"></div>
+            </div>
+          </div>
+        </div>
+        <div id="rate-buttons" class="rate" hidden>
+          <button data-rate="0" class="again">Again <kbd>1</kbd></button>
+          <button data-rate="1" class="hard">Hard <kbd>2</kbd></button>
+          <button data-rate="2" class="good">Good <kbd>3</kbd></button>
+          <button data-rate="3" class="easy">Easy <kbd>4</kbd></button>
+        </div>
+      </div>
+
+      <div id="study-done" class="empty" hidden></div>
+    </section>
+
+    <!-- Quiz -->
+    <section id="view-quiz" class="view">
+      <div class="toolbar">
+        <label>Deck
+          <select id="quiz-deck">
+            <option value="mine">My words</option>
+            <option value="extra">Extra words</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label>Type
+          <select id="quiz-type">
+            <option value="mixed">Mixed</option>
+            <option value="synonym">Pick the synonym</option>
+            <option value="antonym">Pick the antonym</option>
+            <option value="definition">Word from definition</option>
+            <option value="sentence">Complete the sentence</option>
+            <option value="arabic">Word from Arabic meaning</option>
+          </select>
+        </label>
+        <label>Questions
+          <select id="quiz-count">
+            <option>10</option><option>20</option><option>30</option>
+          </select>
+        </label>
+        <button id="quiz-start" class="primary">Start quiz</button>
+      </div>
+      <div id="quiz-area" hidden>
+        <p id="quiz-counter" class="muted center"></p>
+        <div class="quiz-card">
+          <p id="quiz-prompt" class="quiz-prompt"></p>
+          <div id="quiz-options" class="options"></div>
+          <p id="quiz-feedback" class="feedback"></p>
+          <button id="quiz-next" class="primary" hidden>Next →</button>
+        </div>
+      </div>
+      <div id="quiz-msg" class="empty">Quizzes need at least 4 words with synonyms, antonyms, definitions or example sentences. Use <b>Auto-fill</b> in My Words to fetch them.</div>
+    </section>
+
+    <!-- My words -->
+    <section id="view-mine" class="view">
+      <details class="panel" open>
+        <summary>Add a word</summary>
+        <form id="add-form" class="grid-form">
+          <input name="term" placeholder="Word *" required>
+          <input name="pos" placeholder="Part of speech (e.g. adjective)">
+          <textarea name="definition" placeholder="Definition" rows="2"></textarea>
+          <input name="synonyms" placeholder="Synonyms, comma separated">
+          <input name="antonyms" placeholder="Antonyms, comma separated">
+          <textarea name="examples" placeholder="Example sentences (one per line)" rows="2"></textarea>
+          <input name="arabic" placeholder="المعنى بالعربية (Arabic meaning)" dir="auto">
+          <div class="row">
+            <label class="check"><input type="checkbox" name="autofill" checked> Auto-fill empty fields from online dictionary</label>
+            <button class="primary" type="submit">Add word</button>
+          </div>
+        </form>
+      </details>
+
+      <details class="panel">
+        <summary>Bulk import your list</summary>
+        <p class="muted">One word per line. Optionally add fields separated by <code>|</code>:<br>
+          <code>word | definition | synonym1, synonym2 | antonym1, antonym2 | example sentence | Arabic meaning</code><br>
+          A CSV file with the same column order also works.</p>
+        <textarea id="bulk-text" rows="6" placeholder="ubiquitous&#10;meticulous | showing great attention to detail | careful, precise | careless, sloppy | She kept meticulous notes."></textarea>
+        <div class="row">
+          <input type="file" id="bulk-file" accept=".csv,.txt">
+          <label class="check"><input type="checkbox" id="bulk-autofill" checked> Auto-fill missing fields online</label>
+          <button id="bulk-import" class="primary">Import</button>
+        </div>
+      </details>
+
+      <div class="toolbar">
+        <input id="mine-search" type="search" placeholder="Search my words…">
+        <button id="mine-autofill-all">Auto-fill all missing</button>
+        <span id="mine-count" class="muted"></span>
+      </div>
+      <div id="mine-list" class="word-list"></div>
+    </section>
+
+    <!-- Extra words -->
+    <section id="view-extra" class="view">
+      <div class="panel">
+        <p>Extra words are kept separate from your own list. Practice them whenever you want more, and move the ones you like into <b>My Words</b>.</p>
+        <div class="row">
+          <label>How many
+            <select id="extra-count"><option>5</option><option selected>10</option><option>20</option></select>
+          </label>
+          <button id="extra-toefl" class="primary">Add from TOEFL word list</button>
+          <button id="extra-related">Add words related to my list</button>
+        </div>
+        <p class="muted small">Definitions, synonyms, antonyms and examples come from the free
+          <a href="https://dictionaryapi.dev" target="_blank" rel="noopener">Free Dictionary API</a> and
+          <a href="https://www.datamuse.com/api/" target="_blank" rel="noopener">Datamuse</a>.</p>
+      </div>
+      <div class="toolbar">
+        <input id="extra-search" type="search" placeholder="Search extra words…">
+        <button id="extra-clear" class="danger">Remove all extra words</button>
+        <span id="extra-count-label" class="muted"></span>
+      </div>
+      <div id="extra-list" class="word-list"></div>
+    </section>
+
+    <!-- Data -->
+    <section id="view-data" class="view">
+      <div class="panel">
+        <h2>Progress</h2>
+        <div id="progress-stats" class="stats"></div>
+      </div>
+      <div class="panel">
+        <h2>Backup</h2>
+        <p class="muted">Your words live in this browser. Export a backup to move them to another device.</p>
+        <div class="row">
+          <button id="export-json" class="primary">Export backup (JSON)</button>
+          <label class="button">Import backup<input type="file" id="import-json" accept=".json" hidden></label>
+          <button id="reset-all" class="danger">Delete everything</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Notebook words</h2>
+        <p class="muted">The words from your handwritten notebook are added to My Words the first time the app opens.
+          Use this to add them again (for example after deleting everything). Existing words are merged, not duplicated.</p>
+        <button id="load-notebook">Add notebook words to My Words</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Edit dialog -->
+  <dialog id="edit-dialog">
+    <form id="edit-form" method="dialog" class="grid-form">
+      <h2>Edit word</h2>
+      <input name="term" placeholder="Word" required>
+      <input name="pos" placeholder="Part of speech">
+      <textarea name="definition" placeholder="Definition" rows="2"></textarea>
+      <input name="synonyms" placeholder="Synonyms, comma separated">
+      <input name="antonyms" placeholder="Antonyms, comma separated">
+      <textarea name="examples" placeholder="Example sentences (one per line)" rows="3"></textarea>
+      <input name="arabic" placeholder="Arabic meaning" dir="auto">
+      <div class="row end">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="data/toefl-words.js"></script>
+  <script src="data/notebook-words.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
