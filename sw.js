@@ -1,10 +1,10 @@
 // Offline support: app files are served from the network when online (so updates
 // show up right away) and from the cache when offline. Dictionary API calls are
 // not cached.
-const CACHE = 'toefl-vocab-v1';
+const CACHE = 'toefl-vocab-v2';
 const FILES = [
   './', 'index.html', 'styles.css', 'app.js', 'manifest.json',
-  'data/toefl-words.js', 'data/notebook-words.js',
+  'data/toefl-words.js', 'data/notebook-words.js', 'data/notebook-details.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

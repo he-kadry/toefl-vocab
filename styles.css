@@ -118,7 +118,12 @@ kbd { font-size: .75em; opacity: .7; border: 1px solid currentColor; border-radi
 .progress { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
 #study-progress-bar { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
 
-.card { perspective: 1200px; cursor: pointer; outline: none; margin: .5rem auto 1rem; max-width: 620px; }
+.card {
+  perspective: 1200px; cursor: pointer; outline: none; margin: .5rem auto 1rem; max-width: 620px;
+  -webkit-user-select: none; user-select: none;
+}
+/* No double-tap zoom on the parts you tap a lot. */
+.card, button, .tab { touch-action: manipulation; }
 .card-inner {
   position: relative; min-height: 320px;
   transition: transform .45s; transform-style: preserve-3d;
@@ -212,6 +217,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .4); }
   background: var(--text); color: var(--bg);
   padding: .6rem 1.1rem; border-radius: 12px; box-shadow: var(--shadow);
   width: max-content; max-width: min(90vw, 480px); text-align: center; z-index: 20;
+  pointer-events: none; /* taps go through to the buttons underneath */
 }
 
 @media (max-width: 560px) {

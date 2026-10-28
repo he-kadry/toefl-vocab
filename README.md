@@ -7,7 +7,8 @@ no server and no account. Your words are saved in your browser.
 ## Features
 
 - **Notebook words**: ~1,000 words from my handwritten notebook (`data/notebook-words.js`, pages 1–41) with their
-  synonyms and Arabic meanings are loaded into My Words. Words added to that file later are
+  synonyms and Arabic meanings are loaded into My Words, together with a definition, part of
+  speech, antonyms and an example sentence for each word (`data/notebook-details.js`). Words added to that file later are
   picked up automatically, without bringing back words you deleted.
 - **My Words**: add words one at a time or bulk-import your list (paste, or a `.txt`/`.csv` file).
   Empty fields (definition, part of speech, synonyms, antonyms, examples) can be
@@ -79,6 +80,7 @@ styles.css            styling (light and dark mode)
 app.js                all app logic
 data/toefl-words.js   built-in pool of TOEFL words for the Extra deck
 data/notebook-words.js  my notebook words (word | synonyms | antonyms | Arabic | example)
+data/notebook-details.js  definitions, antonyms, examples and missing Arabic for the notebook words
 manifest.json         Home Screen app settings (name, icon, colors)
 sw.js                 service worker: lets the app work offline
 icons/                app icons

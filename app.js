@@ -548,7 +548,9 @@
 
   // ---------- Flashcards ----------
 
-  const study = { queue: [], index: 0, total: 0, flipped: false };
+  // `revealed` stays true once the back was shown, so rating still works if the
+  // card is flipped back to the front (e.g. a double tap on a phone).
+  const study = { queue: [], index: 0, total: 0, flipped: false, revealed: false };
 
   function renderStudyStats() {
     const deck = $('#study-deck').value;
@@ -598,6 +600,7 @@
     const w = currentCard();
     if (!w) return finishStudy();
     study.flipped = false;
+    study.revealed = false;
     $('#card').classList.remove('flipped');
     $('#rate-buttons').hidden = true;
 
@@ -621,7 +624,10 @@
     if ($('#study-area').hidden) return;
     study.flipped = !study.flipped;
     $('#card').classList.toggle('flipped', study.flipped);
-    if (study.flipped) $('#rate-buttons').hidden = false;
+    if (study.flipped) {
+      study.revealed = true;
+      $('#rate-buttons').hidden = false;
+    }
   }
 
   function bumpDaily() {
@@ -632,7 +638,7 @@
   // rating: 0 again, 1 hard, 2 good, 3 easy
   function rate(rating) {
     const w = currentCard();
-    if (!w || !study.flipped) return;
+    if (!w || !study.revealed) return;
     const now = Date.now();
     if (rating === 0) {
       w.box = 0;
@@ -947,6 +953,31 @@
       }));
   }
 
+  // Details for the notebook words (data/notebook-details.js) only fill fields
+  // that are still empty, so anything typed or edited by hand is kept.
+  const DETAILS = window.NOTEBOOK_DETAILS || { version: 0, words: {} };
+
+  function fillDetails(w) {
+    const d = DETAILS.words[norm(w.term)];
+    if (!d) return false;
+    let changed = false;
+    if (!w.pos && d.pos) { w.pos = d.pos; changed = true; }
+    if (!w.definition && d.definition) { w.definition = d.definition; changed = true; }
+    if (!w.arabic && d.arabic) { w.arabic = d.arabic; changed = true; }
+    if (!w.antonyms.length && d.antonyms?.length) { w.antonyms = d.antonyms.slice(); changed = true; }
+    if (!w.examples.length && d.example) { w.examples = [d.example]; changed = true; }
+    return changed;
+  }
+
+  function applyDetails() {
+    if ((state.detailsVersion || 0) >= DETAILS.version) return 0;
+    let n = 0;
+    for (const w of state.words) if (fillDetails(w)) n++;
+    state.detailsVersion = DETAILS.version;
+    save();
+    return n;
+  }
+
   // Remembers which notebook words were already loaded, so words added to the
   // notebook file later are picked up without bringing back deleted ones.
   function loadNotebook(onlyNew) {
@@ -954,7 +985,9 @@
     let added = 0;
     for (const f of notebookEntries()) {
       if (onlyNew && seen.has(norm(f.term))) continue;
-      if (upsert(f, 'mine').status === 'added') added++;
+      const r = upsert(f, 'mine');
+      if (r.status === 'added') added++;
+      fillDetails(r.word);
       seen.add(norm(f.term));
     }
     state.notebookTerms = [...seen];
@@ -981,7 +1014,9 @@
 
   {
     const added = loadNotebook(true);
-    if (added) toast(`Loaded ${added} new words from your notebook — open My Words to auto-fill definitions`);
+    const filled = applyDetails();
+    if (added) toast(`Loaded ${added} new words from your notebook`);
+    else if (filled) toast(`Added definitions, examples and antonyms to ${filled} words`);
   }
   renderStudyStats();
 })();
